@@ -5,23 +5,109 @@ format: html
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
+# Libraries
 ```{r}
-1 + 1
+library(tidyverse)
+library(purrr)
+library(ggpubr)
 ```
 
-You can add options to executable code like this
 
+#Loading function
 ```{r}
-#| echo: false
-2 * 2
+source("../R/autopower.R")
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+# Creating Data Frame
+```{r}
+possible_cars = data.frame(name = c("A","B","C","D"), mass=c(10000,65000,38000,5000), area = c(22,30,22,10))
+
+speed_base = 80 * 0.28
+
+possible_cars$power = autopower(V=speed_base, A = possible_cars$area, m=possible_cars$mass)
+
+nsample = 200
+mean_speed = rnorm(n=200, mean=speed_base, sd=0.1)
+
+speeds = rnorm(mean=mean_speed, sd=0.1*mean_speed, nsample)
+summary(speeds)
+```
+
+# For Loop
+```{r}
+#make data frame
+powerall = as.data.frame(matrix(nrow=length(speeds), ncol=nrow(possible_cars)))
+# because we don't initialize it - values are NA
+head(powerall)
+
+#run for loop
+for (i in 1:ncol(powerall)) {
+  powerall[,i] = autopower(A=possible_cars$area[i], m=possible_cars$mass[i], V=speeds)
+}
+
+
+# we can add column names
+colnames(powerall)=possible_cars$name
+
+#Pivot longer for plotting
+powerallr = powerall %>% pivot_longer(cols=everything(), names_to="car", values_to="power")
+
+method_for_plot = ggplot(powerallr, aes(car,power, fill=car))+geom_boxplot()+ggtitle("For Loop")
+method_for_plot
+
+powerall %>% map(mean)
+
+car_A <- mean(powerall$A, na.rm = TRUE)
+car_A 
+
+car_B <- mean(powerall$B, na.rm = TRUE)
+car_B 
+
+car_C <- mean(powerall$C, na.rm = TRUE)
+car_C 
+
+car_D <- mean(powerall$D, na.rm = TRUE)
+car_D 
+```
+
+# Same Thing Using Puur
+```{r}
+powerallP = pmap(list(A = possible_cars$area, m=possible_cars$mass), autopower, V=speeds)
+
+# lets turn to a data frame for easier graphing
+# we can add column names
+powerallP = as.data.frame(powerall, col.names=possible_cars$name)
+
+head(powerallP)
+
+
+# for plotting sometimes its useful to turn columns in to rows
+powerallrP = powerallP %>% pivot_longer(cols=everything(), names_to="car", values_to="power")
+head(powerallr)
+
+# quick visualization
+
+method_purr_plot = ggplot(powerallrP, aes(car,power, fill=car))+geom_boxplot()+ggtitle("Using Puur")
+method_purr_plot
+
+powerallP %>% map(mean)
+
+car_A <- mean(powerallP$A, na.rm = TRUE)
+car_A 
+
+car_B <- mean(powerallP$B, na.rm = TRUE)
+car_B 
+
+car_C <- mean(powerallP$C, na.rm = TRUE)
+car_C 
+
+car_D <- mean(powerallP$D, na.rm = TRUE)
+car_D 
+```
+# Compairing the Two Methods Plot
+```{r}
+# put plots side by side
+# to confirm that they look similar
+ggarrange(method_for_plot, method_purr_plot,  nrow=2)
+```
+
